@@ -1,0 +1,17 @@
+[package]
+name = "is31fl3205"
+version = "0.0.1"
+authors = ["Oliver Stenning <code@ostenning.com>"]
+edition = "2021"
+description = "A rust-embedded driver for the Lumissil Microsystems IS31FL3205 LED driver"
+keywords = ["embedded-hal", "driver", "led", "is31fl3205", "Lumissil Microsystems"]
+categories = ["embedded", "hardware-support", "no-std"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/ostenning/is31fl3205"
+
+[dependencies]
+embedded-hal = { version = "0.2.4", features = ["unproven"] }
+
+[features]
+default = []
