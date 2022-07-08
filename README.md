@@ -55,10 +55,10 @@ interface.set_all_led_scaling(0xFF).unwrap();
 
 /// Finally set the first LED to maximum 16bit brightness. For drivers configured for less than 16bit
 /// Only the required bits are used
-interface.set(0, 0xFFFF);
+interface.set(0, 0xFFFF).unwrap()
 
 // Release the blocking i2c example to regain access to its underlying resources
-let (_i2c, en) = color_controller.release();
+let (_i2c, _en) = color_controller.release();
 
 // Additionally, if you need to integrate this driver with platform specific DMA controllers then
 // a flexible callback can be used rather than blocking i2c
