@@ -1,7 +1,7 @@
 # is31fl3205
 A rust-embedded driver for the Lumissil Microsystems IS31FL3205 LED driver
 
-- https://crates.io/crates/is3fl3205
+- https://crates.io/crates/is31fl3205
 
 ## description
 The IS31FL3205 is an LED driver with 12 constant current channels. Each channel can be pulse width modulated (PWM) by 16 bits for smooth LED brightness control. In addition, each channel has an 8-bit output current control register which allows fine tuning the current for rich RGB color mixing, e.g., a pure white color LED application. The maximum output current of each channel can be adjusted by one 8-bit global control register.
