@@ -113,26 +113,26 @@ pub enum Register {
 }
 
 pub enum SoftwareShutdownMode {
-    SoftwareShutdown = 0x00,
-    Normal = 0x01,
+    SoftwareShutdown = 0b0,
+    Normal = 0b1,
 }
 
 pub enum PwmResolution {
-    Eightbit = 0x00,
-    Tenbit = 0x01,
-    TwelveBit = 0x02,
-    SixteenBit = 0x03,
+    Eightbit = 0b00,
+    Tenbit = 0b01,
+    TwelveBit = 0b10,
+    SixteenBit = 0b11,
 }
 
 pub enum OscillatorClock {
-    SixteenMHz = 0x00,
-    EightMHz = 0x01,
-    OneMHz = 0x02,
-    FiveHundredKHz = 0x03,
-    TwoHundredFiftyKHz = 0x04,
-    OneHundredTwentyFiveKHz = 0x05,
-    SixtyTwoKHz = 0x06,
-    ThirtyOneKHz = 0x07,
+    SixteenMHz = 0b000,
+    EightMHz = 0b001,
+    OneMHz = 0b010,
+    FiveHundredKHz = 0b011,
+    TwoHundredFiftyKHz = 0b100,
+    OneHundredTwentyFiveKHz = 0b101,
+    SixtyTwoKHz = 0b110,
+    ThirtyOneKHz = 0b111,
 }
 
 pub enum OpenShortDetect {
@@ -158,13 +158,13 @@ pub struct Is31fl32xx<MODEL, I2C, EN> {
 /// These provide an interface to the transferred data to modify or read registers of the IS31FL32xx
 pub struct Message<MODEL> {
     /// The register to write or read to/from
-    pub register: Register,
+    register: Register,
     /// An offset of the base register address
-    pub register_offset: u8,
+    register_offset: u8,
     /// The data buffer, with a statically allocated 24 bytes
-    pub data: [u8; 24],
+    data: [u8; 24],
     /// The length of the transferred data
-    pub data_length: usize,
+    data_length: usize,
     /// Model
     model: PhantomData<MODEL>,
 }
@@ -191,7 +191,15 @@ where
         }
     }
 
-    pub fn register_value(&self) -> u8 {
+    pub fn payload(&self) -> ([u8; 25], usize) {
+        let mut buff = [0u8; 25];
+        let data = &mut buff[0..self.data_length + 1];
+        data[0] = self.register_value() + self.register_offset;
+        data[1..self.data_length + 1].copy_from_slice(&self.data[0..self.data_length]);
+        (buff, self.data_length + 1)
+    }
+
+    fn register_value(&self) -> u8 {
         MODEL::register_value(self.register)
     }
 
@@ -200,6 +208,7 @@ where
         self.register_offset = offset;
         self
     }
+
     /// Defines a power control message for initialising oscillator clock, pwm resolution
     /// and device enable / disable
     pub fn power_control(
@@ -212,25 +221,25 @@ where
             &[(osc as u8) << 4 | (pms as u8) << 1 | (ssd as u8)],
         )
     }
+
     /// Defines a pulse width modulation message for setting the illuminosity of a given channel
     /// For example, setting channel 0 to 0xFF will set it to the brightest value in 8bit mode
     /// The "Update" message must be sent to see the effect of modifications to the Pwm register
     pub fn pulse_width_modulation(channel: u8, value: u16) -> Self {
-        Self::new(
-            Register::Pwm,
-            &[(value & 0x00FF) as u8, ((value & 0xFF00) >> 8) as u8],
-        )
-        .register_offset(channel * 2)
+        Self::new(Register::Pwm, &value.to_le_bytes()).register_offset(channel * 2)
     }
+
     /// Update all PWM registers with the loaded values
-    /// Must be called after setitng the Pulse Width Modulation register
+    /// Must be called after setting the Pulse Width Modulation register
     pub fn update() -> Self {
         Self::new(Register::Update, &[0x00])
     }
+
     /// Adjust the global current usage of the device, see manual for detail about current usage
     pub fn global_current_control(value: u8) -> Self {
         Self::new(Register::GlobalCurrentControl, &[value])
     }
+    
     /// Adjust individual LED current usage, see manual for detail about current usage
     pub fn led_scaling(channel: u8, value: u8) -> Self {
         Self::new(Register::LedScaling, &[value]).register_offset(channel)
