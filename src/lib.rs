@@ -225,8 +225,13 @@ where
     /// Defines a pulse width modulation message for setting the illuminosity of a given channel
     /// For example, setting channel 0 to 0xFF will set it to the brightest value in 8bit mode
     /// The "Update" message must be sent to see the effect of modifications to the Pwm register
-    pub fn pulse_width_modulation(channel: u8, value: u16) -> Self {
-        Self::new(Register::Pwm, &value.to_be_bytes()).register_offset(channel * 2)
+    pub fn pulse_width_modulation(channel: u8, value: u16, resolution: PwmResolution) -> Self {
+        match resolution {
+            PwmResolution::Eightbit => {
+                Self::new(Register::Pwm, &[value as u8]).register_offset(channel * 2)
+            }
+            _ => Self::new(Register::Pwm, &value.to_be_bytes()).register_offset(channel * 2),
+        }
     }
 
     /// Update all PWM registers with the loaded values
@@ -364,12 +369,12 @@ where
     /// Set the desired channel value.
     /// * `channel` - index of led starting at 0
     /// * `value` - When operating in modes less than 16bit, then only the desired number of bits will be considered
-    pub fn set(&mut self, channel: u8, value: u16) -> Result<(), Error<S>> {
+    pub fn set(&mut self, channel: u8, value: u16, res: PwmResolution) -> Result<(), Error<S>> {
         if channel as usize > MODEL::channel_count() - 1 {
             return Err(Error::ChannelOutOfBounds);
         }
 
-        self.write(Message::pulse_width_modulation(channel, value))?;
+        self.write(Message::pulse_width_modulation(channel, value, res))?;
         self.write(Message::update())
     }
 }
