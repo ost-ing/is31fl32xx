@@ -226,7 +226,7 @@ where
     /// For example, setting channel 0 to 0xFF will set it to the brightest value in 8bit mode
     /// The "Update" message must be sent to see the effect of modifications to the Pwm register
     pub fn pulse_width_modulation(channel: u8, value: u16) -> Self {
-        Self::new(Register::Pwm, &value.to_le_bytes()).register_offset(channel * 2)
+        Self::new(Register::Pwm, &value.to_be_bytes()).register_offset(channel * 2)
     }
 
     /// Update all PWM registers with the loaded values
@@ -239,7 +239,7 @@ where
     pub fn global_current_control(value: u8) -> Self {
         Self::new(Register::GlobalCurrentControl, &[value])
     }
-    
+
     /// Adjust individual LED current usage, see manual for detail about current usage
     pub fn led_scaling(channel: u8, value: u8) -> Self {
         Self::new(Register::LedScaling, &[value]).register_offset(channel)
