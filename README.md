@@ -1,5 +1,5 @@
 # is31fl32xx
-A rust-embedded driver for the Lumissil Microsystems IS31FL32xx LED driver
+A rust-embedded driver for the Lumissil Microsystems IS31FL32xx LED driver, using `embedded-hal 1.0.0` traits.
 
 - https://crates.io/crates/is31fl32xx
 

@@ -6,16 +6,12 @@
 #![allow(unused)]
 
 use core::marker::PhantomData;
-use embedded_hal::blocking::delay::DelayMs;
-use embedded_hal::{
-    blocking::i2c::{Read, Write, WriteRead},
-    digital::v2::OutputPin,
-};
+use embedded_hal::{delay::DelayNs, digital::OutputPin, i2c::I2c};
 
 #[derive(Debug)]
-pub enum Error<I> {
+pub enum Error {
     /// I2C bus error
-    I2C(I),
+    I2C,
     /// Connection error (device not found)
     Conn,
     /// Address error (invalid or out of bounds)
@@ -230,7 +226,7 @@ where
             PwmResolution::Eightbit => {
                 Self::new(Register::Pwm, &[value as u8]).register_offset(channel * 2)
             }
-            _ => Self::new(Register::Pwm, &value.to_be_bytes()).register_offset(channel * 2),
+            _ => Self::new(Register::Pwm, &value.to_le_bytes()).register_offset(channel * 2),
         }
     }
 
@@ -251,10 +247,10 @@ where
     }
 }
 
-impl<MODEL, I2C, EN, S> Is31fl32xx<MODEL, I2C, EN>
+impl<MODEL, I2C, EN> Is31fl32xx<MODEL, I2C, EN>
 where
     MODEL: Model,
-    I2C: Write<u8, Error = S> + Read<u8, Error = S> + WriteRead<u8, Error = S>,
+    I2C: I2c,
     EN: OutputPin,
 {
     /// Initialize the Is31fl32xx with a flexible asynchronous callback interface
@@ -292,7 +288,7 @@ where
 
     /// Write a Message to the Is31fl32xx, will either use the blocking i2c interface
     /// Or write to the callback for DMA / Interrupt asynchronous communication
-    fn write(&mut self, message: Message<MODEL>) -> Result<(), Error<S>> {
+    fn write(&mut self, message: Message<MODEL>) -> Result<(), Error> {
         let mut buff: [u8; 24] = [0u8; 24];
 
         // Take the first 2 bits of the user configurable address and
@@ -308,7 +304,7 @@ where
                 .as_mut()
                 .unwrap()
                 .write(address, &data[0..message.data_length + 1])
-                .map_err(Error::I2C)?;
+                .map_err(|_| Error::I2C)?;
         } else if self.transfer_callback.is_some() {
             self.transfer_callback.unwrap()(address, &data[0..message.data_length + 1]);
         } else {
@@ -321,30 +317,30 @@ where
     /// ub fn reset<DEL: DelayMs<u8>>(&mut self, delay: &mut DEL) -> Result<(), I2cError>
     /// Will bring the enable line low and then high, rebooting the device to a default state
     /// And then configure the device with the desired clock rate, pwm resolution and software enable / disable state
-    pub fn enable_device<DEL: DelayMs<u8>>(
+    pub fn enable_device<DEL: DelayNs>(
         &mut self,
         delay: &mut DEL,
         osc: OscillatorClock,
         pms: PwmResolution,
         ssd: SoftwareShutdownMode,
-    ) -> Result<(), Error<S>> {
+    ) -> Result<(), Error> {
         // Set the enable line low to shutdown the device
         self.enable.set_low().map_err(|_| Error::EnableLine)?;
-        delay.delay_ms(10_u8);
+        delay.delay_ms(10_u32);
         // Enable line must be pulled high for operation
         self.enable.set_high().map_err(|_| Error::EnableLine)?;
-        delay.delay_ms(10_u8);
+        delay.delay_ms(10_u32);
         self.write(Message::power_control(osc, pms, ssd))
     }
 
     /// Set the global current usage, a value of 0xFF will use the maximum current as allowed by the Rin resistance
-    pub fn set_global_current(&mut self, value: u8) -> Result<(), Error<S>> {
+    pub fn set_global_current(&mut self, value: u8) -> Result<(), Error> {
         self.write(Message::global_current_control(value))
     }
 
     /// Set all leds to have the desired led scaling, a value of 0xFF will use the maximum current with respect to the global current
     /// configuration. See user manual for more information
-    pub fn set_all_led_scaling(&mut self, value: u8) -> Result<(), Error<S>> {
+    pub fn set_all_led_scaling(&mut self, value: u8) -> Result<(), Error> {
         for i in 0..MODEL::channel_count() {
             self.write(Message::led_scaling(i as u8, value))?;
         }
@@ -352,12 +348,12 @@ where
     }
     /// Set the led to have the desired led scaling, a value of 0xFF will use the maximum current with respect to the global current
     /// configuration. See user manual for more information
-    pub fn set_led_scaling(&mut self, channel: u8, value: u8) -> Result<(), Error<S>> {
+    pub fn set_led_scaling(&mut self, channel: u8, value: u8) -> Result<(), Error> {
         self.write(Message::led_scaling(channel, value))
     }
 
     /// Shutdown the device with a software shutdown and then pull the enable line low to physically turn off the device
-    pub fn shutdown_device(&mut self) -> Result<(), Error<S>> {
+    pub fn shutdown_device(&mut self) -> Result<(), Error> {
         self.write(Message::power_control(
             OscillatorClock::FiveHundredKHz,
             PwmResolution::Eightbit,
@@ -369,7 +365,7 @@ where
     /// Set the desired channel value.
     /// * `channel` - index of led starting at 0
     /// * `value` - When operating in modes less than 16bit, then only the desired number of bits will be considered
-    pub fn set(&mut self, channel: u8, value: u16, res: PwmResolution) -> Result<(), Error<S>> {
+    pub fn set(&mut self, channel: u8, value: u16, res: PwmResolution) -> Result<(), Error> {
         if channel as usize > MODEL::channel_count() - 1 {
             return Err(Error::ChannelOutOfBounds);
         }
